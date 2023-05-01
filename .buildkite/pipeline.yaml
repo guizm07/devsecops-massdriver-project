@@ -1,0 +1,102 @@
+---
+env:
+  ECR: "077700697743.dkr.ecr.us-east-1.amazonaws.com"
+  PRECOMMIT_IMG: "devsecops/python-poetry:sha-6ee13d77f46feef8ead684811b2c65028ace243e"
+  PROJECT_NAME: 'devsecops-massdriver-project'
+  DEV_IMG: 'devsecops-massdriver-project-dev'  # As per "make build-docker"
+  TEST_IMG: 'devsecops-massdriver-project-test'
+  RELEASE_IMG: 'devsecops-massdriver-project'
+  DOCKER_VERSION: 'v3.9.0'
+
+steps:
+  - key: linters
+    label: "Linters"
+    # Fail CI on pre-commit hook (lint) failure
+    command: pre-commit run --all --all-files
+    plugins:
+      - docker#${DOCKER_VERSION}:
+          image: "${ECR}/${PRECOMMIT_IMG}"
+    agents:
+      queue: build
+
+  - key: ecr
+    label: ":ecr:"
+    pipe-gen:
+      type: step/ecr
+      args:
+        name: "${DEV_IMG}"
+
+  - label: ':docker:'
+    key: poetry-docker-build-push
+    depends_on:
+      - ecr
+    pipe-gen:
+      type: step/docker-build
+      args:
+        name: "${DEV_IMG}"
+
+  - key: poetry-docker-build-test-ecr
+    label: ":ecr:"
+    pipe-gen:
+      type: step/ecr
+      args:
+        name: "${TEST_IMG}"
+
+  - label: ':docker: :pytest:'
+    key: poetry-docker-build-test-push
+    depends_on:
+      - poetry-docker-build-push
+      - poetry-docker-build-test-ecr
+    pipe-gen:
+      type: step/docker-build
+      args:
+        name: "${TEST_IMG}"
+        file: "./Dockerfile.test"
+        build_args: # Image pushed before has tag of COMMITHASH prefixed by "sha-"
+          ROOT_IMAGE: "${ECR}/${DEV_IMG}:sha-${BUILDKITE_COMMIT}"
+
+  - label: ":ecr: scan"
+    key: scan-image
+    depends_on:
+      - poetry-docker-build-push
+    agents:
+      queue: build
+    pipe-gen:
+      type: step/ecr-scan
+      args:
+        name: "${DEV_IMG}"
+        severity: CRITICAL
+        image_tag: "sha-${BUILDKITE_COMMIT}"
+
+  - key: unit_test
+    label: ":pytest:"
+    depends_on:
+      - linters
+      - poetry-docker-build-test-push
+    agents:
+      queue: build
+    artifact_paths:
+      - "test_results/*"
+    plugins:
+      - docker#${DOCKER_VERSION}:
+          image: "${ECR}/${TEST_IMG}:sha-${BUILDKITE_COMMIT}"
+
+  - key: ecr-release
+    label: ":ecr:"
+    pipe-gen:
+      type: step/ecr
+      args:
+        name: ${RELEASE_IMG}
+
+  # The "release" image, with no dev dependencies
+  - label: ':docker: Release'
+    key: poetry-docker-release-build-push
+    depends_on:
+      - linters
+      - unit_test
+      - ecr-release
+    pipe-gen:
+      type: step/docker-build
+      args:
+        name: "${RELEASE_IMG}"
+        file: Dockerfile.release

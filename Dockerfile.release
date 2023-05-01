@@ -1,0 +1,45 @@
+# vi:syntax=dockerfile
+FROM 077700697743.dkr.ecr.us-east-1.amazonaws.com/devsecops/base/python311:sha-d4387f55e4c054cff159c8fd955719dcbf1724a1 as builder
+
+COPY . /workdir/
+WORKDIR /workdir
+
+RUN poetry build -f wheel
+
+# Start over with just the binary package install
+FROM 077700697743.dkr.ecr.us-east-1.amazonaws.com/hub/python:3.11-alpine
+
+COPY --from=builder /workdir/dist /opt/app
+
+# https://repo1.dso.mil/dsop/opensource/python/python311/-/blob/79be7d8589e1462a110a90a5124203662a50a318/Dockerfile#L77-80
+# https://stackoverflow.com/a/55757473
+RUN addgroup \
+    --gid 1001 \
+    python \
+    && adduser \
+    -D \
+    -G python \
+    --home /home/python \
+    --shell /sbin/nologin \
+    --uid 1001 \
+    python \
+;
+USER 1001
+
+# install the wheel
+RUN set -x \
+    && pip install --no-cache-dir /opt/app/*.whl \
+    && ls -lah /opt/app \
+;
+USER 0
+RUN rm /opt/app/*.whl
+USER 1001
+
+# set the PATH
+ENV PATH="/home/python/.local/bin:$PATH"
+
+# set default environment variables
+ENV PODIUM_HELLO_DEV_PROD_ENV=prod
+
+# default cmd -- run the app
+CMD ["podium-hello"]

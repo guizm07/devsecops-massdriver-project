@@ -1,0 +1,9 @@
+# vi:syntax=dockerfile
+ARG ROOT_IMAGE
+# The ARG used is always a pinned image tag anyway
+# hadolint ignore=DL3006
+FROM ${ROOT_IMAGE}
+
+COPY ./entrypoint.test.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]

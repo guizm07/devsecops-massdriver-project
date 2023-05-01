@@ -1,0 +1,23 @@
+# vi:syntax=dockerfile
+FROM python:3.11.2-bullseye as poetry-base
+
+WORKDIR /opt/devcontainer
+COPY ./requirements.dev.txt .
+RUN pip install --no-cache-dir -r requirements.dev.txt
+WORKDIR /opt/app
+COPY . .
+# hadolint ignore=DL4006
+RUN poetry export \
+    --dev \
+    --format=requirements.txt \
+    | tee /opt/devcontainer/requirements.poetry.txt \
+;
+
+# Stage 2, stripped out un-needed stuff
+FROM python:3.11.2-bullseye
+
+WORKDIR /opt/devcontainer
+COPY --from=poetry-base /opt/devcontainer/requirements.dev.txt .
+COPY --from=poetry-base /opt/devcontainer/requirements.poetry.txt .
+RUN pip install --no-cache-dir -r requirements.dev.txt \
+    && pip install --no-cache-dir -r requirements.poetry.txt

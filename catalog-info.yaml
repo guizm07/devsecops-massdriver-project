@@ -1,0 +1,14 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: devsecops-massdriver-project
+  description: This repository is used to modify backstage yaml files.
+  annotations:
+    github.com/project-slug: fanduel/devsecops-massdriver-project
+    sonarqube.org/project-key: fanduel_devsecops-massdriver-project
+    buildkite.com/project-slug: fanduel/devsecops-massdriver-project
+    github.com/team-slug: fanduel/devsecops-eng
+spec:
+  type: service
+  lifecycle: experimental
+  owner: devsecops-eng

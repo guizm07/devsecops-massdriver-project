@@ -1,0 +1,9 @@
+  {
+        	 "name": "Existing Dockerfile",
+        	 "context": "..",
+        	 "dockerFile": "../Dockerfile",
+        	 "runArgs": [
+        		"--env-file",
+        		"${localWorkspaceFolder}/.devcontainer/credentials.sh"
+        	 ]
+        }  

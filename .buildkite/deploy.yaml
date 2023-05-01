@@ -1,0 +1,19 @@
+---
+env:
+  ECR: "077700697743.dkr.ecr.us-east-1.amazonaws.com"
+  PROJECT_NAME: 'devsecops-massdriver-project'
+  RELEASE_IMG: 'devsecops-massdriver-project'
+  DOCKER_VERSION: 'v3.9.0'
+  NAMESPACE: 'devsecops-massdriver-project'
+steps:
+  - block:
+    prompt: "Do you want to deploy?"
+  - key: fake_deploy
+    label: "Fake deploy"
+    command:
+      - "date"  # Fill this in with your real deploy
+    plugins:
+      - docker#${DOCKER_VERSION}:  # Assumed RELEASE_IMG was pushed in build
+          image: "${ECR}/${RELEASE_IMG}:sha-${BUILDKITE_COMMIT}"
+    agents:
+      queue: build
